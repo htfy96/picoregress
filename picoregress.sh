@@ -13,7 +13,7 @@ color_enabled() {
   return 0
 }
 
-# $1: style (in bold, boldgreen, boldred, green, red)
+# $1: style (in bold, boldgreen, boldred, green, red, dim, dimgreen, dimred)
 # $2: string to colorize
 # Print the colorized string (no line end)
 colorize() {
@@ -27,13 +27,16 @@ colorize() {
   fi
   local res
   res="$2"
+  if [[ $1 == "dim" || $1 == "dimgreen" || $1 == "dimred" ]]; then
+    res=$(tput dim)"$res"$(tput sgr0)
+  fi
   if [[ $1 == "bold" || $1 == "boldgreen" || $1 == "boldred" ]]; then
     res=$(tput bold)"$res"$(tput sgr0)
   fi
-  if [[ $1 == "red" || $1 == "boldred" ]]; then
+  if [[ $1 == "red" || $1 == "boldred" || $1 == "dimred" ]]; then
     res=$(tput setaf 1)"$res"$(tput sgr0)
   fi
-  if [[ $1 == "green" || $1 == "boldgreen" ]]; then
+  if [[ $1 == "green" || $1 == "boldgreen" || $1 == "dimgreen" ]]; then
     res=$(tput setaf 2)"$res"$(tput sgr0)
   fi
   echo -n "$res"
@@ -193,7 +196,7 @@ run_test_case() {
   local fail_flag=""
   local output_dir
   output_dir=$(mktemp -d)
-  /usr/bin/env bash -c "${TEST_CASES[$1]}" >"${output_dir}"/stdout 2>"${output_dir}"/stderr || fail_flag=1
+  /usr/bin/env PICORG=1 PICORG_TEST_CASE="$1" PICORG_OUTPUT_DIR="$output_dir" bash -c "${TEST_CASES[$1]}" >"${output_dir}"/stdout 2>"${output_dir}"/stderr || fail_flag=1
   if [[ $fail_flag == 1 ]]; then
     echo >&2 "Failed to run ${TEST_CASES[$1]}. Check output at $output_dir"
     return
@@ -216,7 +219,7 @@ update_test_case() {
       fi
       mkdir -p "$OUTPUT_DIR/$test_case"
       if diff -rq "$output_dir" "$OUTPUT_DIR/$test_case"; then
-        echo "$(colorize boldgreen "    Unchanged!")"
+        echo "$(colorize dimgreen "    Unchanged!")"
       else
         echo ">>> OLD"
         echo "$(colorize red "$(print_file_summary "$OUTPUT_DIR/$test_case/stderr")")"
