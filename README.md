@@ -27,7 +27,7 @@ test_case_2=Any Bash Command
 ```
 
 
-Then, run `picoregress.sh run` at project root, and it will prompt interactively for updating hashes. You can specify the subset of tests to run via `picoregress.sh run {regex}`. Additionally, `run -u` automatically updates all hashes, while `run -x` skips the interactive prompt.
+Then, run `picoregress.sh run` at project root, and it will prompt interactively for updating hashes. You can specify the subset of tests to run via `picoregress.sh run {regex}`. Additionally, `run -u` automatically updates all hashes, while `run -x` skips the interactive prompt. Refer to the next section for detailed help.
 
 ## Command-line references
 
@@ -51,6 +51,11 @@ Then, run `picoregress.sh run` at project root, and it will prompt interactively
   name=COMMAND
 
   The COMMAND can be any valid shell script
+
+  picoregress.sh sets a few additional environment variables during the run:
+  - PICORG=1
+  - PICORG_TEST_CASE={test_case_name}
+  - PICORG_OUTPUT_DIR={output_dir}
 ```
 
 ## License

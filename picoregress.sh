@@ -144,7 +144,12 @@ usage() {
 
   name=COMMAND
 
-  The COMMAND can be any valid shell script
+  The COMMAND can be any valid shell script.
+
+  picoregress.sh sets a few additional environment variables during the run:
+  - PICORG=1
+  - PICORG_TEST_CASE={test_case_name}
+  - PICORG_OUTPUT_DIR={output_dir}
 EOF
 }
 
