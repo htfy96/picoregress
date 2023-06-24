@@ -133,7 +133,7 @@ usage() {
   Commands:
     list: list all regression test cases and output status
     output-dir {test case name}: print out the test case output dir
-    run [test case name regex] [-u | -x]: run test and diff output. Specifying -u auto-updates changed hashes. -x skips hash update.
+    run [-u | -x] [test case name regex]: run test and diff output. Specifying -u auto-updates changed hashes. -x skips hash update.
 
   Current directory should contain a file called picoregress.cfg, which specifies:
 
