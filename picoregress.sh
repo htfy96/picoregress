@@ -44,8 +44,8 @@ colorize() {
 
 # Ensure it's Bash 4.2+, else bail out
 check_bash_version() {
-  if ((BASH_VERSINFO[0] < 4 || (BASH_VERSINFO[0] == 4 && BASH_VERSINFO[1] < 1))); then
-    echo >&2 "Bash version too low! Current: ${BASH_VERSION}. Requires >= 4.1"
+  if ((BASH_VERSINFO[0] < 4 || (BASH_VERSINFO[0] == 4 && BASH_VERSINFO[1] < 2))); then
+    echo >&2 "Bash version too low! Current: ${BASH_VERSION}. Requires >= 4.2"
     echo >&2 ""
     echo >&2 "If you are on Mac OS, install the latest via brew install bash instead using system defaults"
     exit 1
@@ -270,6 +270,15 @@ run_test_cases() {
   done
 }
 
+# $1: test_case_name
+print_output_dir() {
+  if [[ ! -v "TEST_CASES[$1]" ]]; then
+    echo >&2 "Cannot find test case $1"
+    exit 1
+  fi
+  echo "$OUTPUT_DIR/$1"
+}
+
 main() {
   check_bash_version
   parse_config
@@ -287,6 +296,9 @@ main() {
     ;;
   run)
     run_test_cases "${2:-.*}"
+    ;;
+  "output-dir")
+    print_output_dir "$2"
     ;;
   *)
     echo >&2 "Unsupported command $1"
