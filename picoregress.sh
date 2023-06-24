@@ -2,6 +2,43 @@
 
 set -euo pipefail
 
+# Returns 0 if color is enabled, 1 otherwise
+color_enabled() {
+  if [[ ${NO_COLOR+unset} == "unset" ]]; then
+    return 1
+  fi
+  if [[ ! -t 0 ]]; then
+    return 1
+  fi
+  return 0
+}
+
+# $1: style (in bold, boldgreen, boldred, green, red)
+# $2: string to colorize
+# Print the colorized string (no line end)
+colorize() {
+  if ! color_enabled; then
+    echo -n "$2"
+    return
+  fi
+  if [[ -z $1 ]]; then
+    echo -n "$2"
+    return
+  fi
+  local res
+  res="$2"
+  if [[ $1 == "bold" || $1 == "boldgreen" || $1 == "boldred" ]]; then
+    res=$(tput bold)"$res"$(tput sgr0)
+  fi
+  if [[ $1 == "red" || $1 == "boldred" ]]; then
+    res=$(tput setaf 1)"$res"$(tput sgr0)
+  fi
+  if [[ $1 == "green" || $1 == "boldgreen" ]]; then
+    res=$(tput setaf 2)"$res"$(tput sgr0)
+  fi
+  echo -n "$res"
+}
+
 # Ensure it's Bash 4.2+, else bail out
 check_bash_version() {
   if ((BASH_VERSINFO[0] < 4 || (BASH_VERSINFO[0] == 4 && BASH_VERSINFO[1] < 1))); then
@@ -111,13 +148,27 @@ EOF
 
 # Arg: $1: file path
 print_file_summary() {
-  echo -n "$1: "
+  local -r remain="${1%/*}"
+  local -r last="${1##*/}"
+  echo "$remain/$(colorize bold "$last")"
   if [[ ! -f $1 ]]; then
     echo "Non-existent"
     return
   fi
 
-  echo "Last Modified: $(stat -c "%Y" "$1" | xargs -I{} date -d"@{}"). Sha256sum: $(sha256sum "$1" | head -c 8)"
+  local -r checksum=$(sha256sum "$1" | head -c 8)
+  echo "    Last Modified: " "$(stat -c "%Y" "$1" | xargs -I{} date -d"@{}")" ". Sha256sum: $(colorize bold "$checksum")"
+  if color_enabled; then
+    tput dim
+  fi
+  if [[ ! -s $1 ]]; then
+    echo "    File is empty"
+  else
+    head -3 "$1" | sed 's/^/  > /'
+  fi
+  if color_enabled; then
+    tput sgr0
+  fi
 }
 
 # $1: test_case_regex
@@ -126,7 +177,7 @@ list_test_cases() {
   for test_case in "${!TEST_CASES[@]}"; do
     if [[ $test_case =~ $1 ]]; then
       echo "============"
-      echo "Test case ${test_case}"
+      echo "$(colorize bold "Test case ${test_case}")"
       echo "------------"
       print_file_summary "$OUTPUT_DIR/$test_case/stderr"
       print_file_summary "$OUTPUT_DIR/$test_case/stdout"
@@ -156,20 +207,25 @@ update_test_case() {
   for test_case in "${!TEST_CASES[@]}"; do
     if [[ $test_case =~ $1 ]]; then
       echo "============"
-      echo "Test case ${test_case}"
+      echo "$(colorize bold "Test case ${test_case}")"
       echo "------------"
-      echo ">>> OLD"
-      print_file_summary "$OUTPUT_DIR/$test_case/stderr"
-      print_file_summary "$OUTPUT_DIR/$test_case/stdout"
       local output_dir
       output_dir=$(run_test_case "${test_case}")
       if [[ -z $output_dir ]]; then
         continue
       fi
-      echo "<<< NEW"
-      print_file_summary "$output_dir/stderr"
-      print_file_summary "$output_dir/stdout"
-      cp -rf "$output_dir" "$OUTPUT_DIR/$test_case"
+      mkdir -p "$OUTPUT_DIR/$test_case"
+      if diff -rq "$output_dir" "$OUTPUT_DIR/$test_case"; then
+        echo "$(colorize boldgreen "    Unchanged!")"
+      else
+        echo ">>> OLD"
+        echo "$(colorize red "$(print_file_summary "$OUTPUT_DIR/$test_case/stderr")")"
+        echo "$(colorize red "$(print_file_summary "$OUTPUT_DIR/$test_case/stdout")")"
+        echo "<<< NEW"
+        echo "$(colorize green "$(print_file_summary "$output_dir/stderr")")"
+        echo "$(colorize green "$(print_file_summary "$output_dir/stdout")")"
+        cp -rf "$output_dir"/* "$OUTPUT_DIR/$test_case/"
+      fi
     fi
   done
 }
