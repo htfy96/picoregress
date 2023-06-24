@@ -2,6 +2,8 @@
 
 Picoregress is a minimal, single-file regression testing framework written in Bash 4.2. It acts as a helper to run, diff, store and update `stdout` and `stderr` of test commands.
 
+[![asciicast](https://asciinema.org/a/593089.svg)](https://asciinema.org/a/593089)
+
 ## Usage
 
 Download the script either into your project folder or to $PATH:
