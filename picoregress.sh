@@ -133,8 +133,7 @@ usage() {
   Commands:
     list: list all regression test cases and output status
     output-dir {test case name}: print out the test case output dir
-    run [test case name regex]: run test and diff output
-    update [test case name regex]: run test and update hash
+    run [test case name regex] [-u | -x]: run test and diff output. Specifying -u auto-updates changed hashes. -x skips hash update.
 
   Current directory should contain a file called picoregress.cfg, which specifies:
 
@@ -205,38 +204,15 @@ run_test_case() {
 }
 
 # Arg1: Pattern
-update_test_cases() {
-  local test_case
-  for test_case in "${!TEST_CASES[@]}"; do
-    if [[ $test_case =~ $1 ]]; then
-      echo "============"
-      echo "$(colorize bold "Test case ${test_case}")"
-      echo "------------"
-      local output_dir
-      output_dir=$(run_test_case "${test_case}")
-      if [[ -z $output_dir ]]; then
-        continue
-      fi
-      mkdir -p "$OUTPUT_DIR/$test_case"
-      if diff -rq "$output_dir" "$OUTPUT_DIR/$test_case"; then
-        echo "$(colorize dimgreen "    Unchanged!")"
-      else
-        echo ">>> OLD"
-        echo "$(colorize red "$(print_file_summary "$OUTPUT_DIR/$test_case/stderr")")"
-        echo "$(colorize red "$(print_file_summary "$OUTPUT_DIR/$test_case/stdout")")"
-        echo "<<< NEW"
-        echo "$(colorize green "$(print_file_summary "$output_dir/stderr")")"
-        echo "$(colorize green "$(print_file_summary "$output_dir/stdout")")"
-        cp -rf "$output_dir"/* "$OUTPUT_DIR/$test_case/"
-        echo "$(colorize boldgreen "    Updated!")"
-      fi
-    fi
-  done
-}
-
-# Arg1: Pattern
+# Arg2: update_flag:
+#   "yes": auto update all changed hashes
+#   "no": never update changed hashes
+#   Unset/empty: prompt
 run_test_cases() {
   local test_case
+  local -r auto_update="$2"
+  declare -a changed_cases=()
+  declare -A output_dirs=()
   for test_case in "${!TEST_CASES[@]}"; do
     if [[ $test_case =~ $1 ]]; then
       echo "============"
@@ -244,13 +220,15 @@ run_test_cases() {
       echo "------------"
       local output_dir
       output_dir=$(run_test_case "${test_case}")
+      output_dirs[$test_case]="$output_dir"
       if [[ -z $output_dir ]]; then
         continue
       fi
       mkdir -p "$OUTPUT_DIR/$test_case"
-      if diff -rq "$output_dir" "$OUTPUT_DIR/$test_case"; then
+      if diff -rq "$output_dir" "$OUTPUT_DIR/$test_case" >/dev/null; then
         echo "$(colorize dimgreen "    Unchanged!")"
       else
+        changed_cases+=("$test_case")
         echo ">>> OLD"
         echo "$(colorize red "$(print_file_summary "$OUTPUT_DIR/$test_case/stderr")")"
         echo "$(colorize red "$(print_file_summary "$OUTPUT_DIR/$test_case/stdout")")"
@@ -261,13 +239,43 @@ run_test_cases() {
         if color_enabled; then
           tput dim
         fi
-        diff -ru3 "$OUTPUT_DIR/$test_case" "$output_dir/" | sed 's/^/  > /'
+        diff -ru3 "$OUTPUT_DIR/$test_case" "$output_dir/" | sed 's/^/  > /' || true
         if color_enabled; then
           tput sgr0
         fi
       fi
     fi
   done
+
+  if [[ $auto_update != "no" && (${#changed_cases[@]} -gt 0) ]]; then
+    echo "=========================="
+    echo "Changed cases:"
+    local i
+    for ((i = 0; i < ${#changed_cases[@]}; i++)); do
+      printf "%3s: %s\n" $((i + 1)) "${changed_cases[$i]}"
+    done
+    echo "=========================="
+    echo ""
+    local prompt
+    if [[ $auto_update != "yes" ]]; then
+      echo -n "Enter a regex to specify cases to update: "
+      read -r prompt
+      if [[ -z $prompt ]]; then
+        return
+      fi
+    else
+      prompt=".*"
+    fi
+    for test_case in "${changed_cases[@]}"; do
+      if [[ $test_case =~ $prompt ]]; then
+        echo -n "Updating" "$(colorize bold "$test_case")..."
+        output_dir="${output_dirs[$test_case]}"
+        cp -rf "$output_dir"/* "$OUTPUT_DIR/$test_case/"
+        echo "$(colorize boldgreen " Updated!")"
+      fi
+    done
+  fi
+  return "${#changed_cases[@]}"
 }
 
 # $1: test_case_name
@@ -287,21 +295,38 @@ main() {
     usage
     exit 0
   fi
-  case "$1" in
+  local -r cmd="$1"
+  shift 1
+  case "$cmd" in
   list)
-    list_test_cases "${2:-.*}"
-    ;;
-  update)
-    update_test_cases "${2:-.*}"
+    list_test_cases "${1:-.*}"
     ;;
   run)
-    run_test_cases "${2:-.*}"
+    local auto_update_flag=""
+    while getopts ":ux" o; do
+      case "$o" in
+      u)
+        auto_update_flag="yes"
+        shift
+        ;;
+      x)
+        auto_update_flag="no"
+        shift
+        ;;
+      *)
+        echo >&2 "Unknown args $o"
+        exit 1
+        ;;
+      esac
+    done
+    run_test_cases "${1:-.*}" "$auto_update_flag"
+    exit "$?"
     ;;
   "output-dir")
-    print_output_dir "$2"
+    print_output_dir "$1"
     ;;
   *)
-    echo >&2 "Unsupported command $1"
+    echo >&2 "Unsupported command $cmd"
     usage
     exit 1
     ;;
