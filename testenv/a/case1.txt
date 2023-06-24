@@ -1,0 +1,2 @@
+a=echo abc || echo def
+b=awk "{print 'abc=' }"

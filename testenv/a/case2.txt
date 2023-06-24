@@ -1,0 +1,1 @@
+c=OFS=" " echo def jkl
