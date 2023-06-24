@@ -205,7 +205,7 @@ run_test_case() {
 }
 
 # Arg1: Pattern
-update_test_case() {
+update_test_cases() {
   local test_case
   for test_case in "${!TEST_CASES[@]}"; do
     if [[ $test_case =~ $1 ]]; then
@@ -228,6 +228,43 @@ update_test_case() {
         echo "$(colorize green "$(print_file_summary "$output_dir/stderr")")"
         echo "$(colorize green "$(print_file_summary "$output_dir/stdout")")"
         cp -rf "$output_dir"/* "$OUTPUT_DIR/$test_case/"
+        echo "$(colorize boldgreen "    Updated!")"
+      fi
+    fi
+  done
+}
+
+# Arg1: Pattern
+run_test_cases() {
+  local test_case
+  for test_case in "${!TEST_CASES[@]}"; do
+    if [[ $test_case =~ $1 ]]; then
+      echo "============"
+      echo "$(colorize bold "Test case ${test_case}")"
+      echo "------------"
+      local output_dir
+      output_dir=$(run_test_case "${test_case}")
+      if [[ -z $output_dir ]]; then
+        continue
+      fi
+      mkdir -p "$OUTPUT_DIR/$test_case"
+      if diff -rq "$output_dir" "$OUTPUT_DIR/$test_case"; then
+        echo "$(colorize dimgreen "    Unchanged!")"
+      else
+        echo ">>> OLD"
+        echo "$(colorize red "$(print_file_summary "$OUTPUT_DIR/$test_case/stderr")")"
+        echo "$(colorize red "$(print_file_summary "$OUTPUT_DIR/$test_case/stdout")")"
+        echo "<<< NEW"
+        echo "$(colorize green "$(print_file_summary "$output_dir/stderr")")"
+        echo "$(colorize green "$(print_file_summary "$output_dir/stdout")")"
+        echo "<<< DIFF >>>"
+        if color_enabled; then
+          tput dim
+        fi
+        diff -ru3 "$OUTPUT_DIR/$test_case" "$output_dir/" | sed 's/^/  > /'
+        if color_enabled; then
+          tput sgr0
+        fi
       fi
     fi
   done
@@ -246,7 +283,10 @@ main() {
     list_test_cases "${2:-.*}"
     ;;
   update)
-    update_test_case "${2:-.*}"
+    update_test_cases "${2:-.*}"
+    ;;
+  run)
+    run_test_cases "${2:-.*}"
     ;;
   *)
     echo >&2 "Unsupported command $1"
