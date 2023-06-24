@@ -7,6 +7,7 @@ Picoregress is a minimal, single-file regression testing framework written in Ba
 Download the script either into your project folder or to $PATH:
 
 ```
+curl -sSL https://github.com/htfy96/picoregress/raw/master/picoregress.sh > picoregress.sh && chmod +x picoregress.sh
 ```
 
 After that, create a `picoregress.cfg` containing two lines in your project root:
